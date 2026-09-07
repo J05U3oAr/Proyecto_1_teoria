@@ -4,12 +4,11 @@ RegexTokenizer
 Convierte una expresión regular infix (como texto) en una lista de tokens,
 insertando el operador de concatenación implícito ('.') donde corresponde.
 
-Símbolo de épsilon: se usa el carácter Unicode 'ε' (no una letra ni un
-dígito), ya que es prácticamente imposible que forme parte del alfabeto
-de una expresión regular de prueba.
+Símbolo de épsilon: se usa '~', elegido por ser fácil de escribir y por
+no ser una letra, un número ni uno de los operadores del lenguaje.
 """
 
-EPSILON = "ε"
+EPSILON = "~"
 
 # Operadores soportados por el lenguaje de expresiones regulares
 UNARY_OPERATORS = {"*", "+", "?"}

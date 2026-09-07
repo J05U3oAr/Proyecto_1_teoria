@@ -56,8 +56,9 @@ con `-o`), con el patrón `regex_<i>_afn.png`, `regex_<i>_afd.png` y
   símbolos consecutivos).
 - `\` para escapar un operador y tratarlo como símbolo literal (por
   ejemplo `\(` para el paréntesis literal).
-- `ε` (épsilon) como símbolo literal para representar explícitamente
-  la cadena vacía dentro de una expresión, por ejemplo `(a|ε)b*`.
+- `~` como símbolo reservado para representar a épsilon (la cadena
+  vacía) dentro de una expresión, por ejemplo `(a|~)b*`. Se eligió
+  porque no es una letra, un número ni uno de los operadores soportados.
 
 ## Estructura del proyecto
 
