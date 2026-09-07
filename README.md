@@ -24,23 +24,22 @@ pip install -r requirements.txt
 
 ## Uso
 
-**Una expresión regular y una cadena:**
-
-```bash
-python main.py -r "(b|b)*abb(a|b)*" -w "babbaaaa"
-```
-
-**Un archivo con una expresión regular por línea** (formato que
-entrega el calificador), evaluada contra la misma cadena `w`:
-
-```bash
-python main.py -f examples/regexes.txt -w "babbaaaa"
-```
-
-**Modo interactivo** (sin argumentos, pide `r` y `w` en un ciclo):
+**Dos archivos de texto:**
 
 ```bash
 python main.py
+```
+
+Por defecto, el programa lee `examples/regexes.txt` y
+`examples/cadenas.txt`. Ambos deben tener la misma cantidad de líneas: la
+expresión de la línea *n* se evalúa con la cadena de la línea *n*.
+El único símbolo textual para representar ε es `\~`, incluso para una
+cadena vacía en `cadenas.txt`; no se permiten líneas vacías.
+
+**Archivos con otro nombre o ubicación:**
+
+```bash
+python main.py -f ruta/expresiones_del_calificador.txt -c ruta/cadenas_del_calificador.txt
 ```
 
 Las imágenes se guardan en `output/` (o en la carpeta que indiques
@@ -56,9 +55,9 @@ con `-o`), con el patrón `regex_<i>_afn.png`, `regex_<i>_afd.png` y
   símbolos consecutivos).
 - `\` para escapar un operador y tratarlo como símbolo literal (por
   ejemplo `\(` para el paréntesis literal).
-- `~` como símbolo reservado para representar a épsilon (la cadena
-  vacía) dentro de una expresión, por ejemplo `(a|~)b*`. Se eligió
-  porque no es una letra, un número ni uno de los operadores soportados.
+- `\~` representa explícitamente épsilon, es decir, la cadena vacía;
+  por ejemplo, `(a|\~)b*`. La tilde con barra invertida queda reservada
+  para esta finalidad.
 
 ## Estructura del proyecto
 
@@ -93,6 +92,3 @@ lexical-analyzer/
 python -m pytest tests/
 ```
 
-Además de las pruebas incluidas, el pipeline fue validado con más de
-2000 pruebas aleatorias (fuzzing) comparando el resultado contra el
-módulo `re` de Python, sin discrepancias.

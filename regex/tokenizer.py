@@ -1,28 +1,22 @@
-"""
+r"""
 RegexTokenizer
 ==============
 Convierte una expresión regular infix (como texto) en una lista de tokens,
 insertando el operador de concatenación implícito ('.') donde corresponde.
 
-Símbolo de épsilon: se usa '~', elegido por ser fácil de escribir y por
-no ser una letra, un número ni uno de los operadores del lenguaje.
+Símbolo de épsilon: se usa la secuencia ``\~``. No es una letra ni un
+número, por lo que no se confunde con los símbolos ordinarios del alfabeto.
 """
 
-EPSILON = "~"
+# La notación elegida para ε en la entrada es ``\~``.  Se conserva como
+# token interno para que nunca pueda confundirse con el carácter ``~``.
+EPSILON = r"\~"
 
 # Operadores soportados por el lenguaje de expresiones regulares
 UNARY_OPERATORS = {"*", "+", "?"}
 BINARY_OPERATORS = {"|", "."}  # '.' es la concatenación explícita interna
 ALL_OPERATORS = UNARY_OPERATORS | BINARY_OPERATORS
 CONCAT_OP = "."
-ESCAPE_PREFIX = "\\"
-
-
-def decode_literal(token: str) -> str:
-    """Recupera el carácter real de un token literal escapado."""
-    if token.startswith(ESCAPE_PREFIX) and len(token) == 2:
-        return token[1]
-    return token
 
 
 class RegexTokenizer:
@@ -53,9 +47,11 @@ class RegexTokenizer:
                     raise ValueError(
                         f"Escape incompleto al final de la expresión: '{regex}'"
                     )
-                # Conserva el escape dentro del token para distinguir, por
-                # ejemplo, el literal ``\*`` del operador de Kleene ``*``.
-                tokens.append(ESCAPE_PREFIX + regex[i + 1])
+                escaped = regex[i : i + 2]
+                # ``\~`` es la representación acordada de epsilon.  Los
+                # demás escapes se conservan para que, por ejemplo, ``\*``
+                # siga siendo un literal y no el operador de Kleene.
+                tokens.append(EPSILON if escaped == EPSILON else escaped)
                 i += 2
                 continue
 
@@ -88,4 +84,6 @@ class RegexTokenizer:
         return result
 
     def _is_literal(self, tok: str) -> bool:
-        return tok not in ALL_OPERATORS and tok not in ("(", ")")
+        return tok.startswith("\\") or (
+            tok not in ALL_OPERATORS and tok not in ("(", ")")
+        )

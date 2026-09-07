@@ -1,62 +1,40 @@
-"""
-AutomatonRenderer
-==================
-Genera una imagen (PNG) del grafo de un autómata (AFN o AFD) usando la
-librería graphviz: estado inicial (con una flecha de entrada), estados
-normales (círculo) y estados de aceptación (doble círculo).
-"""
+"""Renderizado con Graphviz de AFN y AFD."""
 
 from __future__ import annotations
 
-import graphviz
+from collections import defaultdict
+from pathlib import Path
 
-from automata.nfa import NFA
+from graphviz import Digraph
+
 from automata.dfa import DFA
+from automata.nfa import NFA
 
 
 class AutomatonRenderer:
-    def render(
-        self,
-        automaton: NFA | DFA,
-        filename: str,
-        directory: str = ".",
-        title: str | None = None,
-    ) -> str:
-        states, start, accept_states = self._extract(automaton)
-
-        graph = graphviz.Digraph(format="png")
-        graph.attr(rankdir="LR")
-        if title:
-            graph.attr(label=title, labelloc="t", fontsize="14")
-
-        # Nodo invisible + flecha de entrada al estado inicial
-        graph.node("__start__", shape="point", width="0.05")
-        graph.edge("__start__", str(start.id))
-
+    def render(self, automaton: NFA | DFA, title: str, output_path: str | Path) -> Path:
+        destination = Path(output_path)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        graph = Digraph(name=destination.stem, format="png")
+        graph.attr(rankdir="LR", label=title, labelloc="t", fontsize="18")
+        graph.attr("node", shape="circle", fontname="Arial")
+        graph.node("__start__", "", shape="point")
+        graph.edge("__start__", str(automaton.start.id))
+        states = automaton.states
         for state in states:
-            shape = "doublecircle" if state in accept_states else "circle"
-            graph.node(str(state.id), label=state.label, shape=shape)
-
-        for (src_id, dst_id), symbols in self._grouped_edges(states).items():
-            graph.edge(str(src_id), str(dst_id), label=", ".join(sorted(symbols)))
-
-        return graph.render(filename=filename, directory=directory, cleanup=True)
-
-    # ------------------------------------------------------------------
-    def _extract(self, automaton: NFA | DFA):
-        if isinstance(automaton, NFA):
-            return automaton.states, automaton.start, {automaton.accept}
-        if isinstance(automaton, DFA):
-            return automaton.states, automaton.start, automaton.accept_states
-        raise TypeError("automaton debe ser una instancia de NFA o DFA")
-
-    def _grouped_edges(self, states) -> dict[tuple[int, int], list[str]]:
-        """Agrupa los símbolos que comparten el mismo par (origen, destino)
-        para no dibujar una arista repetida por cada símbolo."""
-        edges: dict[tuple[int, int], list[str]] = {}
+            graph.node(
+                str(state.id), state.label,
+                shape="doublecircle" if state.is_accept else "circle",
+            )
+        labels: dict[tuple[int, int], list[str]] = defaultdict(list)
         for state in states:
             for symbol, targets in state.transitions.items():
                 for target in targets:
-                    key = (state.id, target.id)
-                    edges.setdefault(key, []).append(symbol)
-        return edges
+                    labels[(state.id, target.id)].append(symbol)
+        for (origin, target), symbols in labels.items():
+            # DOT consume una barra invertida en una etiqueta. Duplicarla
+            # conserva la notación visible de epsilon como ``\~``.
+            visible_symbols = [symbol.replace("\\", "\\\\") for symbol in sorted(symbols)]
+            graph.edge(str(origin), str(target), label=", ".join(visible_symbols))
+        rendered = graph.render(filename=destination.stem, directory=str(destination.parent), cleanup=True)
+        return Path(rendered)

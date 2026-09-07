@@ -1,20 +1,18 @@
-"""
-RegexFileReader
-================
-Lee un archivo de texto donde cada línea contiene una expresión
-regular, tal como lo especifica el enunciado del proyecto (el
-calificador entregará este archivo al momento de la presentación).
-"""
+"""Lectura de archivos de expresiones regulares."""
 
-from __future__ import annotations
+from pathlib import Path
 
 
 class RegexFileReader:
-    def read_regexes(self, path: str) -> list[str]:
-        with open(path, "r", encoding="utf-8") as f:
-            lines = [line.strip() for line in f]
-        return [line for line in lines if line]
-
-    def read_strings(self, path: str) -> list[str]:
-        with open(path, "r", encoding="utf-8") as f:
-            return [line.rstrip("\r\n") for line in f]
+    def read(self, path: str | Path, keep_empty: bool = False) -> list[str]:
+        source = Path(path)
+        try:
+            lines = source.read_text(encoding="utf-8-sig").splitlines()
+        except OSError as error:
+            raise ValueError(f"No se pudo leer el archivo '{source}': {error}") from error
+        expressions = [line.strip() for line in lines]
+        if not keep_empty:
+            expressions = [line for line in expressions if line]
+        if not expressions:
+            raise ValueError("El archivo no contiene expresiones regulares.")
+        return expressions

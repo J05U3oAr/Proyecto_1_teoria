@@ -1,35 +1,37 @@
-"""
-AutomatonSimulator
-===================
-Simula una cadena w sobre un AFN o un AFD para determinar si
-w pertenece al lenguaje aceptado por el autómata.
-"""
+"""Simulación de AFN y AFD."""
 
 from __future__ import annotations
 
-from .nfa import NFA
 from .dfa import DFA
+from .nfa import NFA
+
+
+def _matches(symbol: str, character: str) -> bool:
+    r"""Un símbolo escapado, salvo ``\~``, representa su carácter literal."""
+    return symbol[1:] == character if symbol.startswith("\\") else symbol == character
 
 
 class AutomatonSimulator:
-    def simulate_nfa(self, nfa: NFA, w: str) -> bool:
+    def simulate_nfa(self, nfa: NFA, word: str) -> bool:
         current = nfa.epsilon_closure({nfa.start})
-        for symbol in w:
-            # Épsilon representa una transición que no consume entrada y no
-            # forma parte del alfabeto. Lo mismo aplica a cualquier símbolo
-            # desconocido recibido en la cadena.
-            if symbol not in nfa.alphabet:
-                return False
-            current = nfa.epsilon_closure(nfa.move(current, symbol))
-            if not current:
-                return False
+        for character in word:
+            next_states = set()
+            for state in current:
+                for symbol, targets in state.transitions.items():
+                    if symbol != r"\~" and _matches(symbol, character):
+                        next_states.update(targets)
+            current = nfa.epsilon_closure(next_states)
         return nfa.accept in current
 
-    def simulate_dfa(self, dfa: DFA, w: str) -> bool:
+    def simulate_dfa(self, dfa: DFA, word: str) -> bool:
         current = dfa.start
-        for symbol in w:
-            next_state = dfa.step(current, symbol)
-            if next_state is None:
+        for character in word:
+            target = next(
+                (next(iter(targets)) for symbol, targets in current.transitions.items()
+                 if _matches(symbol, character)),
+                None,
+            )
+            if target is None:
                 return False
-            current = next_state
+            current = target
         return current.is_accept

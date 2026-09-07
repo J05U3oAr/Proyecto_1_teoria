@@ -21,6 +21,9 @@ from regex.tokenizer import (
 
 class ThompsonBuilder:
     def build(self, postfix: list[str]) -> NFA:
+        # Cada expresión es un autómata independiente: sus estados deben
+        # comenzar en q0, como en la salida del laboratorio.
+        State.reset_counter()
         stack: list[NFAFragment] = []
         alphabet: set[str] = set()
 
@@ -54,7 +57,29 @@ class ThompsonBuilder:
 
         fragment = stack.pop()
         fragment.accept.is_accept = True
-        return NFA(fragment.start, fragment.accept, alphabet)
+        nfa = NFA(fragment.start, fragment.accept, alphabet)
+        self._label_from_start(nfa)
+        return nfa
+
+    def _label_from_start(self, nfa: NFA) -> None:
+        """Etiqueta el grafo desde el inicio: el estado inicial siempre q0."""
+        ordered: list[State] = []
+        seen: set[State] = set()
+        pending = [nfa.start]
+        while pending:
+            state = pending.pop()
+            if state in seen:
+                continue
+            seen.add(state)
+            ordered.append(state)
+            targets = [
+                target
+                for symbol in sorted(state.transitions)
+                for target in state.transitions[symbol]
+            ]
+            pending.extend(reversed(sorted(targets, key=lambda target: target.id)))
+        for index, state in enumerate(ordered):
+            state.label = f"q{index}"
 
     # ------------------------------------------------------------------
     # Reglas de construcción (cada una regresa un nuevo NFAFragment)

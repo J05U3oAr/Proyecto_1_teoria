@@ -67,4 +67,6 @@ class ShuntingYard:
         return self._PRECEDENCE.get(op, 0)
 
     def _is_literal(self, tok: str) -> bool:
-        return tok not in ALL_OPERATORS and tok not in ("(", ")")
+        return tok.startswith("\\") or (
+            tok not in ALL_OPERATORS and tok not in ("(", ")")
+        )

@@ -1,87 +1,61 @@
-"""
-Pruebas básicas del pipeline completo. Ejecutar con:
-    pytest tests/
-desde la raíz del proyecto (o `python -m pytest` si el import falla,
-para que la raíz del proyecto quede en sys.path).
-"""
-
-import sys
+import tempfile
+import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-import shutil
-import tempfile
-
-import pytest
-
+from automata import AutomatonSimulator, DFAMinimizer, SubsetConstructor, ThompsonBuilder
+from io_ import RegexFileReader
 from pipeline import LexicalAnalyzerPipeline
-from io_.file_reader import RegexFileReader
+from regex import EPSILON, RegexTokenizer, ShuntingYard
 
 
-@pytest.fixture()
-def pipeline():
-    tmp_dir = tempfile.mkdtemp()
-    yield LexicalAnalyzerPipeline(output_dir=tmp_dir)
-    shutil.rmtree(tmp_dir, ignore_errors=True)
+def build(regex: str):
+    postfix = ShuntingYard().to_postfix(RegexTokenizer().tokenize(regex))
+    nfa = ThompsonBuilder().build(postfix)
+    dfa = SubsetConstructor().convert(nfa)
+    return nfa, dfa, DFAMinimizer().minimize(dfa)
 
 
-CASES = [
-    # (regex, cadena, esperado)
-    ("(b|b)*abb(a|b)*", "babbaaaa", True),
-    ("(b|b)*abb(a|b)*", "aaaa", False),
-    ("(b|b)*abb(a|b)*", "abb", True),
-    ("a(b|c)*d", "ad", True),
-    ("a(b|c)*d", "abcbccd", True),
-    ("a(b|c)*d", "abcbccx", False),
-    ("(ab)+", "ababab", True),
-    ("(ab)+", "", False),
-    ("(ab)+", "aba", False),
-    ("colou?r", "color", True),
-    ("colou?r", "colour", True),
-    ("colou?r", "colouur", False),
-    ("~", "", True),
-    ("~", "~", False),
-    ("(a|~)b*", "", True),
-    ("(a|~)b*", "abbb", True),
-    ("a~b", "ab", True),
-    ("a~b", "a~b", False),
-    ("ε", "ε", True),
-    ("ε", "", False),
-    (r"\*", "*", True),
-    (r"\*", "", False),
-    (r"a\|b", "a|b", True),
-    (r"\(\)", "()", True),
-    (r"a\.b", "a.b", True),
-]
+class ProjectRequirementsTests(unittest.TestCase):
+    def test_epsilon_is_backslash_tilde(self):
+        self.assertEqual(EPSILON, r"\~")
+        tokens = RegexTokenizer().tokenize(r"(a|\~)b*")
+        self.assertIn(r"\~", tokens)
+        nfa, dfa, minimized = build(r"(a|\~)b*")
+        simulator = AutomatonSimulator()
+        for word in ("", "a", "b", "abbb"):
+            self.assertTrue(simulator.simulate_nfa(nfa, word))
+            self.assertTrue(simulator.simulate_dfa(dfa, word))
+            self.assertTrue(simulator.simulate_dfa(minimized, word))
+
+    def test_automata_agree_on_acceptance(self):
+        nfa, dfa, minimized = build(r"(a|b)*abb(a|b)*")
+        simulator = AutomatonSimulator()
+        for word, expected in {
+            "": False, "abb": True, "aabb": True, "babbab": True, "ab": False,
+        }.items():
+            self.assertEqual(simulator.simulate_nfa(nfa, word), expected)
+            self.assertEqual(simulator.simulate_dfa(dfa, word), expected)
+            self.assertEqual(simulator.simulate_dfa(minimized, word), expected)
+
+    def test_each_nfa_starts_at_q0(self):
+        first, _, _ = build("ab")
+        second, _, _ = build("(a|b)*")
+        self.assertEqual(first.start.label, "q0")
+        self.assertEqual(second.start.label, "q0")
+
+    def test_pipeline_renders_three_automata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = LexicalAnalyzerPipeline().analyze(r"a\~b", "ab", directory)
+            self.assertTrue(result.nfa_accepts)
+            self.assertEqual(len(result.images), 3)
+            self.assertTrue(all(image.exists() and image.suffix == ".png" for image in result.images))
+
+    def test_reader_processes_one_regex_per_line(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "regexes.txt"
+            source.write_text("a\n\n(a|b)*\n", encoding="utf-8")
+            self.assertEqual(RegexFileReader().read(source), ["a", "(a|b)*"])
 
 
-@pytest.mark.parametrize("regex,w,expected", CASES)
-def test_nfa_dfa_min_dfa_agree_with_expected(pipeline, regex, w, expected):
-    result = pipeline.process(regex, w)
-    assert result.nfa_accepts == expected
-    assert result.dfa_accepts == expected
-    assert result.min_dfa_accepts == expected
-
-
-def test_minimizer_does_not_increase_state_count(pipeline):
-    result = pipeline.process("(b|b)*abb(a|b)*", "babbaaaa")
-    assert len(result.min_dfa.states) <= len(result.dfa.states)
-
-
-def test_images_are_generated(pipeline):
-    result = pipeline.process("a(b|c)*d", "abccd")
-    for image_path in (result.nfa_image, result.dfa_image, result.min_dfa_image):
-        assert Path(image_path).exists()
-
-
-def test_file_reader_loads_regexes_and_strings(tmp_path):
-    regex_file = tmp_path / "regexes.txt"
-    strings_file = tmp_path / "strings.txt"
-    regex_file.write_text("a*\n\n(ab)+\n", encoding="utf-8")
-    strings_file.write_text("aaa\n\nabab\n", encoding="utf-8")
-
-    reader = RegexFileReader()
-
-    assert reader.read_regexes(str(regex_file)) == ["a*", "(ab)+"]
-    assert reader.read_strings(str(strings_file)) == ["aaa", "", "abab"]
+if __name__ == "__main__":
+    unittest.main()

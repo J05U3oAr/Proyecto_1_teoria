@@ -1,87 +1,74 @@
-"""
-DFAMinimizer
-============
-Minimiza un AFD mediante particionamiento por equivalencia de estados
-(algoritmo de Moore / refinamiento de particiones).
-
-Una transición no definida se trata, para efectos de la comparación de
-equivalencia, como si llevara a una clase-fantasma de "rechazo" fija
-(un sumidero conceptual que nunca cambia de clase). Esto evita tener
-que agregar un estado sumidero explícito al autómata minimizado
-resultante: si el AFD original era parcial, el minimizado también lo
-será, con exactamente el mismo comportamiento de aceptación/rechazo.
-"""
+"""Minimización de AFD por refinamiento de particiones."""
 
 from __future__ import annotations
 
-from .state import State
 from .dfa import DFA
-
-_PHANTOM_REJECT = -1  # clase fija para "no hay transición definida"
+from .state import State
 
 
 class DFAMinimizer:
+    """Construye un AFD equivalente con estados indistinguibles unidos.
+
+    Los AFD producidos por subconjuntos pueden ser parciales. Antes de
+    minimizar se completan con un estado trampa no aceptante, requisito para
+    que dos estados que solo difieren por una transición omitida se comparen
+    correctamente.
+    """
+
     def minimize(self, dfa: DFA) -> DFA:
-        alphabet = sorted(dfa.alphabet)
-        states = list(dfa.states)
+        original_states = list(dfa.states)
+        sink: State | None = None
+        if dfa.alphabet and any(
+            dfa.step(state, symbol) is None
+            for state in original_states
+            for symbol in dfa.alphabet
+        ):
+            sink = State(is_accept=False, label="trap")
+        all_states = original_states + ([sink] if sink is not None else [])
 
-        accept = [s for s in states if s.is_accept]
-        nonaccept = [s for s in states if not s.is_accept]
-        partition: list[list[State]] = [g for g in (accept, nonaccept) if g]
+        def transition(state: State, symbol: str) -> State:
+            if state is sink:
+                return sink
+            return dfa.step(state, symbol) or sink  # type: ignore[return-value]
 
-        changed = True
-        while changed:
+        accepting = set(dfa.accept_states)
+        rejecting = set(all_states) - accepting
+        partitions = [group for group in (accepting, rejecting) if group]
+
+        while True:
+            state_to_group = {
+                state: index
+                for index, group in enumerate(partitions)
+                for state in group
+            }
+            refined: list[set[State]] = []
             changed = False
-            membership = self._membership_map(partition)
+            for group in partitions:
+                buckets: dict[tuple[int | None, ...], set[State]] = {}
+                for state in group:
+                    signature = tuple(state_to_group[transition(state, symbol)] for symbol in sorted(dfa.alphabet))
+                    buckets.setdefault(signature, set()).add(state)
+                refined.extend(buckets.values())
+                changed |= len(buckets) > 1
+            partitions = refined
+            if not changed:
+                break
 
-            new_partition: list[list[State]] = []
-            for group in partition:
-                buckets: dict[tuple, list[State]] = {}
-                for s in group:
-                    signature = tuple(
-                        self._group_of(dfa.step(s, sym), membership)
-                        for sym in alphabet
-                    )
-                    buckets.setdefault(signature, []).append(s)
-                if len(buckets) > 1:
-                    changed = True
-                new_partition.extend(buckets.values())
-            partition = new_partition
-
-        return self._build_minimized_dfa(dfa, partition, alphabet)
-
-    # ------------------------------------------------------------------
-    def _membership_map(self, partition: list[list[State]]) -> dict[int, int]:
-        membership: dict[int, int] = {}
-        for group_index, group in enumerate(partition):
-            for state in group:
-                membership[state.id] = group_index
-        return membership
-
-    def _group_of(self, state: State | None, membership: dict[int, int]) -> int:
-        if state is None:
-            return _PHANTOM_REJECT
-        return membership[state.id]
-
-    def _build_minimized_dfa(
-        self, dfa: DFA, partition: list[list[State]], alphabet: list[str]
-    ) -> DFA:
-        membership = self._membership_map(partition)
-
-        new_states: list[State] = []
-        for group_index, group in enumerate(partition):
-            representative = group[0]
-            new_states.append(
-                State(is_accept=representative.is_accept, label=f"M{group_index}")
+        state_to_group = {
+            state: index
+            for index, group in enumerate(partitions)
+            for state in group
+        }
+        states = [
+            State(
+                is_accept=any(state.is_accept for state in group),
+                label=f"M{index}",
             )
-
-        for group_index, group in enumerate(partition):
-            representative = group[0]
-            for symbol in alphabet:
-                target = dfa.step(representative, symbol)
-                if target is not None:
-                    target_group = membership[target.id]
-                    new_states[group_index].add_transition(symbol, new_states[target_group])
-
-        start_group = membership[dfa.start.id]
-        return DFA(new_states[start_group], new_states, set(dfa.alphabet))
+            for index, group in enumerate(partitions)
+        ]
+        for index, group in enumerate(partitions):
+            representative = next(iter(group))
+            for symbol in sorted(dfa.alphabet):
+                target = transition(representative, symbol)
+                states[index].add_transition(symbol, states[state_to_group[target]])
+        return DFA(states[state_to_group[dfa.start]], states, set(dfa.alphabet))
