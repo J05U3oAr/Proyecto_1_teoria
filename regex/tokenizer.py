@@ -16,6 +16,14 @@ UNARY_OPERATORS = {"*", "+", "?"}
 BINARY_OPERATORS = {"|", "."}  # '.' es la concatenación explícita interna
 ALL_OPERATORS = UNARY_OPERATORS | BINARY_OPERATORS
 CONCAT_OP = "."
+ESCAPE_PREFIX = "\\"
+
+
+def decode_literal(token: str) -> str:
+    """Recupera el carácter real de un token literal escapado."""
+    if token.startswith(ESCAPE_PREFIX) and len(token) == 2:
+        return token[1]
+    return token
 
 
 class RegexTokenizer:
@@ -46,7 +54,9 @@ class RegexTokenizer:
                     raise ValueError(
                         f"Escape incompleto al final de la expresión: '{regex}'"
                     )
-                tokens.append(regex[i + 1])
+                # Conserva el escape dentro del token para distinguir, por
+                # ejemplo, el literal ``\*`` del operador de Kleene ``*``.
+                tokens.append(ESCAPE_PREFIX + regex[i + 1])
                 i += 2
                 continue
 

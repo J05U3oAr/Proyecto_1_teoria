@@ -40,6 +40,17 @@ CASES = [
     ("colou?r", "color", True),
     ("colou?r", "colour", True),
     ("colou?r", "colouur", False),
+    ("ε", "", True),
+    ("ε", "ε", False),
+    ("(a|ε)b*", "", True),
+    ("(a|ε)b*", "abbb", True),
+    ("aεb", "ab", True),
+    ("aεb", "aεb", False),
+    (r"\*", "*", True),
+    (r"\*", "", False),
+    (r"a\|b", "a|b", True),
+    (r"\(\)", "()", True),
+    (r"a\.b", "a.b", True),
 ]
 
 

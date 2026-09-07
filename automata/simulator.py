@@ -15,6 +15,11 @@ class AutomatonSimulator:
     def simulate_nfa(self, nfa: NFA, w: str) -> bool:
         current = nfa.epsilon_closure({nfa.start})
         for symbol in w:
+            # Épsilon representa una transición que no consume entrada y no
+            # forma parte del alfabeto. Lo mismo aplica a cualquier símbolo
+            # desconocido recibido en la cadena.
+            if symbol not in nfa.alphabet:
+                return False
             current = nfa.epsilon_closure(nfa.move(current, symbol))
             if not current:
                 return False

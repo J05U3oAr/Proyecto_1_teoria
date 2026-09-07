@@ -11,7 +11,12 @@ from __future__ import annotations
 
 from .state import State
 from .nfa import NFA, NFAFragment
-from regex.tokenizer import EPSILON, UNARY_OPERATORS, BINARY_OPERATORS
+from regex.tokenizer import (
+    EPSILON,
+    UNARY_OPERATORS,
+    BINARY_OPERATORS,
+    decode_literal,
+)
 
 
 class ThompsonBuilder:
@@ -36,9 +41,10 @@ class ThompsonBuilder:
                 stack.append(self._union(frag1, frag2))
             else:
                 # símbolo literal (o épsilon explícito en la expresión)
-                if token != EPSILON:
-                    alphabet.add(token)
-                stack.append(self._literal(token))
+                symbol = decode_literal(token)
+                if symbol != EPSILON:
+                    alphabet.add(symbol)
+                stack.append(self._literal(symbol))
 
         if len(stack) != 1:
             raise ValueError(
