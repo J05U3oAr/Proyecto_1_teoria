@@ -19,6 +19,18 @@ ALL_OPERATORS = UNARY_OPERATORS | BINARY_OPERATORS
 CONCAT_OP = "."
 
 
+def decode_literal(token: str) -> str:
+    r"""Convierte un literal escapado a su símbolo real.
+
+    ``\~`` queda reservado para epsilon; los demás escapes permiten usar
+    operadores como caracteres ordinarios (por ejemplo, ``\*`` representa
+    el símbolo ``*`` y no la cerradura de Kleene).
+    """
+    if token == EPSILON:
+        return EPSILON
+    return token[1:] if token.startswith("\\") else token
+
+
 class RegexTokenizer:
     """Tokeniza una expresión regular infix y agrega la concatenación
     implícita para que ShuntingYard pueda procesarla sin ambigüedad.

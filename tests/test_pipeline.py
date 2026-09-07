@@ -27,6 +27,17 @@ class ProjectRequirementsTests(unittest.TestCase):
             self.assertTrue(simulator.simulate_dfa(dfa, word))
             self.assertTrue(simulator.simulate_dfa(minimized, word))
 
+    def test_escaped_operator_is_a_literal(self):
+        nfa, dfa, minimized = build(r"\*a")
+        simulator = AutomatonSimulator()
+        for automaton, simulate in (
+            (nfa, simulator.simulate_nfa),
+            (dfa, simulator.simulate_dfa),
+            (minimized, simulator.simulate_dfa),
+        ):
+            self.assertTrue(simulate(automaton, "*a"))
+            self.assertFalse(simulate(automaton, "a"))
+
     def test_automata_agree_on_acceptance(self):
         nfa, dfa, minimized = build(r"(a|b)*abb(a|b)*")
         simulator = AutomatonSimulator()
