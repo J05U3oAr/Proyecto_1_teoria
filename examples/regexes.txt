@@ -1,0 +1,4 @@
+(b|b)*abb(a|b)*
+a(b|c)*d
+(ab)+
+colou?r
