@@ -23,10 +23,18 @@ Modos de uso:
 from __future__ import annotations
 
 import argparse
+import sys
 
 from pipeline import LexicalAnalyzerPipeline, ProcessingResult
 from io_.file_reader import RegexFileReader
 from automata.simulator import AutomatonSimulator
+
+
+def configure_terminal_encoding() -> None:
+    """Permite imprimir símbolos de teoría de lenguajes en Windows."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 def print_result(result: ProcessingResult) -> None:
@@ -96,6 +104,7 @@ def run_interactive(pipeline: LexicalAnalyzerPipeline) -> None:
 
 
 def main() -> None:
+    configure_terminal_encoding()
     parser = argparse.ArgumentParser(
         description="Analizador léxico: construye AFN/AFD desde una expresión regular y evalúa una cadena."
     )
