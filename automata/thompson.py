@@ -15,7 +15,9 @@ from regex.tokenizer import (
     EPSILON,
     UNARY_OPERATORS,
     BINARY_OPERATORS,
+    decode_character_class,
     decode_literal,
+    is_character_class,
 )
 
 
@@ -42,6 +44,10 @@ class ThompsonBuilder:
                 frag2 = stack.pop()
                 frag1 = stack.pop()
                 stack.append(self._union(frag1, frag2))
+            elif is_character_class(token):
+                symbols = decode_character_class(token)
+                alphabet.update(symbols)
+                stack.append(self._character_class(symbols))
             else:
                 # símbolo literal (o épsilon explícito en la expresión)
                 symbol = decode_literal(token)
@@ -88,6 +94,14 @@ class ThompsonBuilder:
         start = State()
         accept = State()
         start.add_transition(symbol, accept)
+        return NFAFragment(start, accept)
+
+    def _character_class(self, symbols: set[str]) -> NFAFragment:
+        """Crea un fragmento que consume cualquiera de los símbolos."""
+        start = State()
+        accept = State()
+        for symbol in symbols:
+            start.add_transition(symbol, accept)
         return NFAFragment(start, accept)
 
     def _concat(self, frag1: NFAFragment, frag2: NFAFragment) -> NFAFragment:

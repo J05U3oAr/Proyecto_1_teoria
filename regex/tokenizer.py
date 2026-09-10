@@ -19,6 +19,55 @@ ALL_OPERATORS = UNARY_OPERATORS | BINARY_OPERATORS
 CONCAT_OP = "."
 
 
+def is_character_class(token: str) -> bool:
+    """Indica si ``token`` representa una clase como ``[a-z0-9]``."""
+    return len(token) >= 2 and token.startswith("[") and token.endswith("]")
+
+
+def decode_character_class(token: str) -> set[str]:
+    r"""Expande una clase de caracteres a sus símbolos individuales.
+
+    Se admiten rangos ascendentes (``a-z``) y escapes dentro de la clase
+    (``\]``, ``\-`` o ``\\``). En una clase, ``\~`` representa el carácter
+    literal ``~``; epsilon solo tiene sentido como token independiente.
+    """
+    if not is_character_class(token):
+        raise ValueError(f"Clase de caracteres inválida: '{token}'")
+
+    content = token[1:-1]
+    items: list[tuple[str, bool]] = []
+    index = 0
+    while index < len(content):
+        if content[index] == "\\":
+            if index + 1 >= len(content):
+                raise ValueError(f"Escape incompleto en la clase: '{token}'")
+            items.append((content[index + 1], True))
+            index += 2
+        else:
+            items.append((content[index], False))
+            index += 1
+
+    if not items:
+        raise ValueError("Las clases de caracteres no pueden estar vacías.")
+    if items[0] == ("^", False):
+        raise ValueError("Las clases negadas con '^' no están soportadas.")
+
+    symbols: set[str] = set()
+    index = 0
+    while index < len(items):
+        if index + 2 < len(items) and items[index + 1] == ("-", False):
+            start = items[index][0]
+            end = items[index + 2][0]
+            if ord(start) > ord(end):
+                raise ValueError(f"Rango descendente inválido '{start}-{end}'.")
+            symbols.update(chr(code) for code in range(ord(start), ord(end) + 1))
+            index += 3
+            continue
+        symbols.add(items[index][0])
+        index += 1
+    return symbols
+
+
 def decode_literal(token: str) -> str:
     r"""Convierte un literal escapado a su símbolo real.
 
@@ -65,6 +114,30 @@ class RegexTokenizer:
                 # siga siendo un literal y no el operador de Kleene.
                 tokens.append(EPSILON if escaped == EPSILON else escaped)
                 i += 2
+                continue
+
+            if char == "[":
+                start = i
+                i += 1
+                while i < len(regex):
+                    if regex[i] == "\\":
+                        if i + 1 >= len(regex):
+                            raise ValueError(
+                                f"Escape incompleto en la clase de caracteres: '{regex[start:]}'"
+                            )
+                        i += 2
+                        continue
+                    if regex[i] == "]":
+                        i += 1
+                        token = regex[start:i]
+                        decode_character_class(token)  # valida rangos y escapes
+                        tokens.append(token)
+                        break
+                    i += 1
+                else:
+                    raise ValueError(
+                        f"Clase de caracteres sin cerrar en la expresión: '{regex}'"
+                    )
                 continue
 
             tokens.append(char)

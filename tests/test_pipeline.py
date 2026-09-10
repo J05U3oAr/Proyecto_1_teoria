@@ -38,6 +38,35 @@ class ProjectRequirementsTests(unittest.TestCase):
             self.assertTrue(simulate(automaton, "*a"))
             self.assertFalse(simulate(automaton, "a"))
 
+    def test_character_classes_and_ranges(self):
+        nfa, dfa, minimized = build(r"[a-cA-C0-2.\]]+")
+        simulator = AutomatonSimulator()
+        for automaton, simulate in (
+            (nfa, simulator.simulate_nfa),
+            (dfa, simulator.simulate_dfa),
+            (minimized, simulator.simulate_dfa),
+        ):
+            self.assertTrue(simulate(automaton, "aB2.]"))
+            self.assertFalse(simulate(automaton, "d"))
+
+    def test_url_examples(self):
+        regex = (
+            r"https?://[a-zA-Z0-9.-]+"
+            r"(/[a-zA-Z0-9.~:/?#[\]@!$&'()+,;=-]*)?"
+            r"(\?[a-zA-Z0-9.~:/?#[\]@!$&'()+,;=-]*)?"
+        )
+        nfa, dfa, minimized = build(regex)
+        simulator = AutomatonSimulator()
+        examples = {
+            "https://www.youtube.com/": True,
+            "https://api.site.com/users?limit=10&offset=0": True,
+            "https://www.youtube@.com/": False,
+        }
+        for word, expected in examples.items():
+            self.assertEqual(simulator.simulate_nfa(nfa, word), expected)
+            self.assertEqual(simulator.simulate_dfa(dfa, word), expected)
+            self.assertEqual(simulator.simulate_dfa(minimized, word), expected)
+
     def test_automata_agree_on_acceptance(self):
         nfa, dfa, minimized = build(r"(a|b)*abb(a|b)*")
         simulator = AutomatonSimulator()

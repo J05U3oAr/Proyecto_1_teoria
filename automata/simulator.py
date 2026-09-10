@@ -7,8 +7,8 @@ from .nfa import NFA
 
 
 def _matches(symbol: str, character: str) -> bool:
-    r"""Un símbolo escapado, salvo ``\~``, representa su carácter literal."""
-    return symbol[1:] == character if symbol.startswith("\\") else symbol == character
+    """Los escapes ya fueron decodificados al construir el autómata."""
+    return symbol == character
 
 
 class AutomatonSimulator:

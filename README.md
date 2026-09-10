@@ -51,6 +51,9 @@ con `-o`), con el patrón `regex_<i>_afn.png`, `regex_<i>_afd.png` y
 - Literales: cualquier carácter que no sea un operador.
 - `|` alternación, `*` cerradura de Kleene, `+` una o más veces,
   `?` opcional, `()` agrupación.
+- Clases de caracteres y rangos, por ejemplo `[abc]`, `[a-z]` y
+  `[a-zA-Z0-9]`. Dentro de una clase los operadores son literales y se
+  puede escapar `]`, `-` o `\\` con una barra invertida.
 - Concatenación implícita (no hace falta escribir un operador entre
   símbolos consecutivos).
 - `\` para escapar un operador y tratarlo como símbolo literal (por
